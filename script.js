@@ -252,7 +252,7 @@ identifyButton.addEventListener('click', async () => {
     } else {
       const note = document.createElement('p');
       note.className = 'possible-match';
-      note.textContent = 'I couldn’t match this photo confidently to one of the four animals in the starter guide. Try a clearer photo, or search the guide by name.';
+      note.textContent = 'I couldn’t match this photo confidently to a species in the current field guide. Try a clearer photo, or search the guide by name.';
       identificationResults.append(note);
     }
     identificationStatus.textContent = 'Analysis finished on this device. The photo was not uploaded.';
