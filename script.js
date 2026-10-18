@@ -114,41 +114,56 @@ function animalEntryMarkup(animal) {
         <p class="animal-sources">Species facts: <a href="${animal.factsSource}" target="_blank" rel="noreferrer">${animal.factsLabel || 'Animal Diversity Web'} ↗</a></p>
       </div>
     </article>`;
-}
-
+}let animalSearchTimer = 0;
+let animalSearchRequest = 0;
 function renderAnimalResults(query) {
   const normalized = query.trim().toLowerCase();
+  const requestId = ++animalSearchRequest;
+  window.clearTimeout(animalSearchTimer);
   animalResults.hidden = !normalized;
   if (!normalized) {
     searchMessage.textContent = '';
     animalResults.replaceChildren();
     return;
   }
-
   const matches = animals.filter((animal) => Object.values(animal).join(' ').toLowerCase().includes(normalized));
-  searchMessage.textContent = matches.length
-    ? `${matches.length} ${matches.length === 1 ? 'animal' : 'animals'} found in the field guide.`
-    : 'No match yet. Try tiger, leopard, rhino, bear, snow leopard, red panda, gharial, river dolphin or macaque.';
-
-  if (!matches.length) {
-    animalResults.innerHTML = '<p class="no-animal-result">No animal matched that search. Try <button type="button" data-query="tiger">tiger</button>, <button type="button" data-query="rhino">rhino</button>, <button type="button" data-query="red panda">red panda</button> or <button type="button" data-query="gharial">gharial</button>.</p>';
-  } else {
+  if (matches.length) {
+    searchMessage.textContent = matches.length + (matches.length === 1 ? ' animal' : ' animals') + ' found in the field guide.';
     animalResults.innerHTML = matches.map(animalEntryMarkup).join('');
+  } else {
+    searchMessage.textContent = 'Not in the guide yet. Checking an online reference…';
+    animalResults.innerHTML = '<p class="no-animal-result" role="status">Checking an online reference for this animal…</p>';
+    animalSearchTimer = window.setTimeout(() => findOnlineAnimal(query, requestId), 400);
   }
-
-  animalResults.querySelectorAll('[data-query]').forEach((button) => {
-    button.addEventListener('click', () => {
-      searchInput.value = button.dataset.query;
-      renderAnimalResults(button.dataset.query);
-      searchInput.focus();
-    });
-  });
 }
 
-filterButtons.forEach((button) => {
-  button.addEventListener('click', () => {
-    activeFilter = button.dataset.filter;
-    filterButtons.forEach((item) => {
+async function findOnlineAnimal(query, requestId) {
+  try {
+    const params = new URLSearchParams({ action: 'query', generator: 'search', gsrsearch: query, gsrnamespace: '0', gsrlimit: '3', prop: 'extracts|info|pageimages', exintro: '1', explaintext: '1', inprop: 'url', piprop: 'thumbnail', pithumbsize: '500', format: 'json', origin: '*' });
+    const response = await fetch('https://en.wikipedia.org/w/api.php?' + params);
+    if (!response.ok) throw new Error('Online lookup failed');
+    const data = await response.json();
+    if (requestId !== animalSearchRequest) return;
+    const pages = Object.values(data.query?.pages || {}).sort((a, b) => a.index - b.index).filter((page) => page.extract && !page.pageprops?.disambiguation);
+    searchMessage.textContent = pages.length ? 'No reviewed guide entry yet. Found ' + pages.length + ' online reference ' + (pages.length === 1 ? 'result.' : 'results.') : 'No online reference result found. Try a different spelling or search Google.';
+    const cards = pages.map((page) => '<article class="external-animal-result">' + (page.thumbnail ? '<img src="' + escapeHTML(page.thumbnail.source) + '" alt="" loading="lazy">' : '') + '<div><p class="external-result-label">ONLINE REFERENCE · WIKIPEDIA</p><h3>' + escapeHTML(page.title) + '</h3><p>' + escapeHTML(page.extract) + '</p><a href="' + escapeHTML(page.fullurl) + '" target="_blank" rel="noreferrer">Read source and verify ↗</a></div></article>').join('');
+    const googleLink = 'https://www.google.com/search?q=' + encodeURIComponent(query + ' animal species');
+    animalResults.innerHTML = '<div class="external-results-note">These results come from Wikipedia and have not been reviewed by WildScope. Check the linked source before relying on details.</div>' + cards + '<p class="online-search-link"><a href="' + googleLink + '" target="_blank" rel="noreferrer">Search Google for “' + escapeHTML(query) + '” ↗</a></p>';
+    if (!pages.length) animalResults.insertAdjacentHTML('afterbegin', '<p class="no-animal-result">WildScope could not find an online reference result.</p>');
+  } catch (error) {
+    if (requestId !== animalSearchRequest) return;
+    searchMessage.textContent = 'Online lookup is unavailable right now.';
+    const googleLink = 'https://www.google.com/search?q=' + encodeURIComponent(query + ' animal species');
+    animalResults.innerHTML = '<p class="no-animal-result">WildScope could not reach its online reference. Check your connection, or <a href="' + googleLink + '" target="_blank" rel="noreferrer">search Google for “' + escapeHTML(query) + '” ↗</a>.</p>';
+  }
+}
+
+function escapeHTML(value) {
+  return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+}  filterButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      activeFilter = button.dataset.filter;
+      filterButtons.forEach((item) => {
       const selected = item === button;
       item.classList.toggle('active', selected);
       item.setAttribute('aria-pressed', String(selected));
