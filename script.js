@@ -139,7 +139,7 @@ function renderAnimalResults(query) {
 
 async function findOnlineAnimal(query, requestId) {
   try {
-    const params = new URLSearchParams({ action: 'query', generator: 'search', gsrsearch: query, gsrnamespace: '0', gsrlimit: '3', prop: 'extracts|info|pageimages', exintro: '1', explaintext: '1', inprop: 'url', piprop: 'thumbnail', pithumbsize: '500', format: 'json', origin: '*' });
+    const params = new URLSearchParams({ action: 'query', generator: 'search', gsrsearch: query + ' animal', gsrnamespace: '0', gsrlimit: '1', prop: 'extracts|info|pageimages', exintro: '1', explaintext: '1', inprop: 'url', piprop: 'thumbnail', pithumbsize: '500', format: 'json', origin: '*' });
     const response = await fetch('https://en.wikipedia.org/w/api.php?' + params);
     if (!response.ok) throw new Error('Online lookup failed');
     const data = await response.json();
